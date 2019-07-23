@@ -1,0 +1,26 @@
+#include <msp430.h> 
+//按下亮，松开灭
+
+/**
+ * main.c
+ */
+int main(void)
+{
+	WDTCTL = WDTPW | WDTHOLD;	// stop watchdog timer
+	DCOCTL = 0;					//将 DCO 校准至精准的 1MHz 
+	BCSCTL1 = CALBC1_1MHZ;
+	DCOCTL = CALDCO_1MHZ;
+	
+	P1DIR |= BIT6;				//置一，设置输出
+	P1DIR &= ~BIT3;				//清零，设置输入
+	P1REN |= BIT3;
+
+	while(1)
+	{
+	    if(!(BIT3 & P1IN))		//按下按键，P1.3为0（管脚悬空为1）
+	        P1OUT |= BIT6;		//置一，抬高电压，灯亮
+	    else
+	        P1OUT &= ~BIT6;		//灯灭
+	}
+	return 0;
+}
