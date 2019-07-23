@@ -1,6 +1,7 @@
 #include <msp430.h> 
 //按下亮，松开灭
 
+
 /**
  * main.c
  */
