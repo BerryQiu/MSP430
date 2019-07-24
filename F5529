@@ -1,0 +1,65 @@
+#include <msp430.h> 
+#include <msp430f5529.h>
+
+/**
+ * main.c
+ * 将F553 设置按键脉冲
+ * 按下P1.1，P1.4产生一个脉冲，时间为5s
+ * 按下p2.1，P1.4产生一个脉冲，时间为1.2s
+ */
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+
+//设置输入输出
+    P2DIR &= ~BIT1;
+    P1DIR &= ~BIT1;
+    P1DIR |= BIT4;
+    P4DIR |= BIT7;
+
+//按键无预先设置的值，故先将悬空设为1，防止之前为0。P1.1，P2.1按键
+    P1OUT |= BIT1;
+    P2OUT |= BIT1;
+
+//设为输入时必须加上此寄存器配置（上下拉电阻）
+    P1REN |= BIT1;
+    P2REN |= BIT1;
+
+//中断允许,下降沿中断
+
+    P1IE |= BIT1;
+    P2IE |= BIT1;
+    P1IES |= BIT1;
+    P2IES |= BIT1;
+    P1IFG &= ~BIT1;
+    P2IFG &= ~BIT1;
+
+    _EINT();
+
+    return 0;
+}
+
+#pragma vector = PORT1_VECTOR
+__interrupt void PORT1(void)
+{
+    if(!(P1IN & BIT1))      //按下按键P1.1，
+    {
+        P1OUT |= BIT4;      //P1OUT寄存器的第5位置一，P1.4电压抬高
+        __delay_cycles(5000000);
+        P1OUT &= ~BIT4;
+    }
+    P1IFG &= ~BIT1;
+}
+
+#pragma vector = PORT2_VECTOR
+__interrupt void PORT2(void)
+{
+    if(!(P2IN & BIT1))
+    {
+        P4OUT |= BIT7;
+        __delay_cycles(120000);
+        P4OUT &= ~BIT7;
+    }
+    P1IFG &= ~BIT1;
+}
+
