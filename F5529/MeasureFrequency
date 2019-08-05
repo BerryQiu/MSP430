@@ -11,12 +11,12 @@ unsigned long data;
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
-    P1DIR = 0xf0;
-    P1SEL |= BIT0;
-    TA1CCR0 = 65535;
-    TA1CTL = TASSEL_2 + ID_3 + TACLR + MC_1 + TAIE;
-    TA0CTL = TASSEL_0 + TACLR + TAIE + MC_2;
-    TA0CCTL0 = CCIE;
+    P1DIR = 0xf0;       //P1.0-P1.3输出，P1.4-P1.7输出
+    P1SEL |= BIT0;      //关闭第二功能
+    TA1CCR0 = 65535;    //Timer1_A的R0捕获比较寄存器置入65535
+    TA1CTL = TASSEL_2 + ID_3 + TACLR + MC_1 + TAIE; //TA1选择SMCLK,4分频，增计数，定时器清零
+    TA0CTL = TASSEL_0 + TACLR + TAIE + MC_2;//
+    TA0CCTL0 = CCIE;    //捕获比较寄存器开启CCIFG位中断
     TA1CCTL0 = CCIE;
     _EINT();
     while(1);
@@ -46,3 +46,4 @@ __interrupt void Timer_R1()
     //TA0CTL |= TAIE;
     _enable_interrupts();
 }
+
