@@ -1,0 +1,241 @@
+/*
+test=P2.2, req=P8.1, rst=P2.0, busy=p8.2,
+DB0-DB7=P3.0-P3.7
+将P8.2引出至面包板，再引至LED1，可显示busy的状态
+LED2用来显示复位的信息传输
+*/
+
+#include <msp430.h> 
+#define     REQ_H   P8OUT|=BIT1
+#define     REQ_L   P8OUT&=~BIT1
+
+/**
+ * main.c
+ */
+
+unsigned char zldy[]={
+                      0xea,0x00,0x10,0xd6,0xb1,
+                      0xea,0x00,0x20,0xc1,0xf7,
+                      0xea,0x00,0x30,0xb5,0xe7,
+                      0xea,0x00,0x40,0xd1,0xb9,
+};
+
+unsigned char bj[]={
+                    0xe0,0x00,0x00,48,
+                    0xe0,0x01,0x01,49
+};
+
+unsigned char Number_0[]={
+                    0xe0,0x00,0x00,48
+
+};
+
+void Init_Button_GPIO()
+{
+    P2DIR &= ~BIT1;
+    P2REN |= BIT1;
+    P2OUT |= BIT1;
+    P2IE |= BIT1;
+    P2IES |= BIT1;
+
+    P1DIR &= ~BIT1;
+    P1REN |= BIT1;
+    P1OUT |= BIT1;
+    P1IE |= BIT1;
+    P1IES |= BIT1;
+
+    P4DIR |= BIT7;
+    P4OUT &= ~BIT7;
+
+    P1IFG = 0;
+    P2IFG = 0;
+}
+
+unsigned int Check_Busy()
+{
+    if(P8IN & BIT2)
+    {
+        __delay_cycles(500000);
+        if(P8IN & BIT2)
+        {
+            P4OUT |= BIT7;
+            return 0;
+        }
+        else
+        {
+            P4OUT &= ~BIT7;
+            return 1;
+        }
+    }
+    else
+        P4OUT &= ~BIT7;
+        return 1;
+}
+
+
+
+void Init_LCD_GPIO()
+{
+    P3DIR = 0xff;
+    P3OUT = 0xff;
+    P3SEL &= 0x00;
+    P3REN = 0xff;
+    P8DIR &= ~BIT2;
+    P8DIR |= BIT1;
+    P8OUT |= BIT1 + BIT2;
+    P8REN &= ~BIT2;
+    REQ_H;
+
+    P2DIR |= BIT0 + BIT2;
+    P2OUT |= BIT0 + BIT2;
+    __delay_cycles(5000);
+}
+
+void LCD_Init_HW()
+{
+    P4OUT |= BIT7;
+    P2OUT &= ~BIT0;
+    __delay_cycles(1000000);
+    P2OUT |= BIT0;
+    __delay_cycles(1000000);
+    P4OUT &= ~BIT7;
+}
+
+void Send_Init()    //开启背光
+{
+
+    while(P8IN & BIT2);
+    P3OUT = 0xb5;
+    __delay_cycles(2000);
+    REQ_L;
+    __delay_cycles(2000);
+    while(P8IN & BIT2)
+    {
+        REQ_H;
+    }
+    P3OUT = 0x01;
+    __delay_cycles(2000);
+    REQ_L;
+    __delay_cycles(2000);
+    while(P8IN & BIT2)
+    {
+        REQ_H;
+    }
+}
+
+
+
+void Send_byte(unsigned char g)
+{
+    while(P8IN & BIT2);
+    P3OUT = g;
+    __delay_cycles(2000);
+    REQ_L;
+    __delay_cycles(2000);
+    while(P8IN & BIT2)
+    {
+        REQ_H;
+    }
+}
+
+void Send(unsigned char *R,unsigned int x)
+{
+    unsigned int i;
+    for(i=0;i<x;i++)
+    {
+        Send_byte(R[i]);
+    }
+}
+
+void Clear_All()
+{
+    Send_byte(0xf4);
+    __delay_cycles(2000);
+    REQ_L;
+    __delay_cycles(2000);
+    while(P8IN & BIT2)
+    {
+        REQ_H;
+    }
+    __delay_cycles(20000);
+}
+
+void Number_Display(unsigned long x)
+{
+    unsigned char Num_cache[4];
+    unsigned int i,j,y;
+
+    i = 0;
+
+    while(x)
+    {
+        for(j=0;j<4;j++)
+        {
+            Num_cache[j] = Number_0[j];
+        }
+        y = (x%10);
+        x /= 10;
+        Num_cache[2] += i;
+        Num_cache[3] += y;
+        Send(Num_cache,4);
+        i++;
+        __delay_cycles(2000);
+    }
+}
+
+
+
+void Work_Area()
+{
+    Clear_All();
+    Send_Init();
+    Number_Display(50809102);
+}
+
+int main(void)
+{
+
+    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    Init_Button_GPIO();
+    Init_LCD_GPIO();
+    _EINT();
+    if(Check_Busy())
+    {
+        __delay_cycles(500000);
+        Work_Area();
+    }
+    while(1)
+    {
+        if(!(P8OUT & BIT1))
+        REQ_H;
+    }
+    return 0;
+}
+
+#pragma vector = PORT1_VECTOR
+__interrupt void PORT1_ISR()
+{
+    if(P1IFG & BIT1)
+    {
+        __delay_cycles(15000);
+        if(!(P1IN & BIT1))
+        {
+            LCD_Init_HW();
+        }
+    }
+    P1IFG = 0;
+}
+
+#pragma vector = PORT2_VECTOR
+__interrupt void PORT2_ISR()
+{
+    if(P2IFG & BIT1)
+    {
+        __delay_cycles(15000);
+        if(!(P2IN & BIT1))
+        {
+            Work_Area();
+        }
+    }
+    P2IFG = 0;
+}
