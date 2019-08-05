@@ -1,0 +1,48 @@
+#include <msp430.h>
+
+
+/**
+ * main.c
+ */
+
+unsigned long TA_OverflowCnt=0;
+unsigned long data;
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    P1DIR = 0xf0;
+    P1SEL |= BIT0;
+    TA1CCR0 = 65535;
+    TA1CTL = TASSEL_2 + ID_3 + TACLR + MC_1 + TAIE;
+    TA0CTL = TASSEL_0 + TACLR + TAIE + MC_2;
+    TA0CCTL0 = CCIE;
+    TA1CCTL0 = CCIE;
+    _EINT();
+    while(1);
+
+    return 0;
+}
+
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void Timer_R0()
+{
+    _disable_interrupts();
+    TA_OverflowCnt++;
+    TA0CTL = TASSEL_0 + TACLR + TAIE + MC_2;
+    _enable_interrupts();
+}
+
+#pragma vector = TIMER1_A0_VECTOR
+__interrupt void Timer_R1()
+{
+    _disable_interrupts();
+    data = (TA_OverflowCnt*65535 + TA0R)*2.02;
+    TA_OverflowCnt = 0;
+    TA1CTL = TASSEL_2 + ID_3 + TACLR + MC_1 + TAIE;
+    TA0CTL = TASSEL_0 + TACLR + TAIE + MC_2;
+    //LPM0_EXIT;
+    //TA0CTL &= ~TAIFG;
+    //TA0CTL |= TAIE;
+    _enable_interrupts();
+}
